@@ -4,9 +4,12 @@
     >
       <div class="search-wrapper">
         <input
+          :key="searchInputKey"
           type="text" v-model="keyword"
           placeholder="Search in folder..."
           @keyup="search"
+          ref="searchInput"
+          autofocus
         >
         <div class="controls">
           <span
@@ -117,7 +120,9 @@ export default {
 
       isCaseSensitive: false,
       isWholeWord: false,
-      isRegexp: false
+      isRegexp: false,
+      lastFindInFolderRequestId: 0,
+      searchInputKey: 0
     }
   },
   components: {
@@ -127,17 +132,23 @@ export default {
     showSideBar: function (value, oldValue) {
       if (value && !oldValue && this.rightColumn === 'search') {
         this.keyword = this.searchMatches.value
+        this.focusSearchInput()
       }
+    },
+    findInFolderRequestId: function () {
+      this.handleFindInFolder()
     }
   },
   created () {
     this.$nextTick(() => {
       this.keyword = this.searchMatches.value
       bus.$on('findInFolder', this.handleFindInFolder)
+      bus.$on('focus-find-in-folder-input', this.focusSearchInput)
       if (this.keyword.length > 0 && this.searcherRunning === false) {
         this.searcherRunning = true
         this.search()
       }
+      this.handleFindInFolder()
     })
   },
   computed: {
@@ -145,6 +156,7 @@ export default {
       rightColumn: state => state.layout.rightColumn,
       showSideBar: state => state.layout.showSideBar,
       searchMatches: state => state.editor.currentFile.searchMatches,
+      findInFolderRequestId: state => state.layout.findInFolderRequestId,
       projectTree: state => state.project.projectTree,
       searchExclusions: state => state.preferences.searchExclusions,
       searchMaxFileSize: state => state.preferences.searchMaxFileSize,
@@ -317,11 +329,53 @@ export default {
       this.$store.dispatch('ASK_FOR_OPEN_PROJECT')
     },
     handleFindInFolder () {
-      this.keyword = this.searchMatches.value
+      const currentRequestId = this.findInFolderRequestId
+      if (!currentRequestId || currentRequestId === this.lastFindInFolderRequestId) {
+        return
+      }
+      this.lastFindInFolderRequestId = currentRequestId
+
+      if (typeof this.searcherCancelCallback === 'function') {
+        this.searcherCancelCallback()
+        this.searcherCancelCallback = null
+      }
+
+      this.keyword = ''
+      this.lastKeyword = ''
+      this.searchResult = []
+      this.searchErrorString = ''
+      this.searcherRunning = false
+      this.showSearchCancelArea = false
+      this.searchInputKey += 1
+      this.focusSearchInput()
+    },
+    focusSearchInput () {
+      const tryFocus = () => {
+        const input = this.$refs.searchInput
+        if (!input) return false
+        input.focus()
+        if (typeof input.select === 'function') {
+          input.select()
+        } else if (typeof input.setSelectionRange === 'function') {
+          input.setSelectionRange(0, input.value.length)
+        }
+        return document.activeElement === input
+      }
+
+      this.$nextTick(() => {
+        if (tryFocus()) return
+        requestAnimationFrame(() => {
+          if (tryFocus()) return
+          setTimeout(() => {
+            tryFocus()
+          }, 50)
+        })
+      })
     }
   },
   destroyed () {
     bus.$off('findInFolder', this.handleFindInFolder)
+    bus.$off('focus-find-in-folder-input', this.focusSearchInput)
   }
 }
 </script>

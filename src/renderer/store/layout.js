@@ -9,7 +9,8 @@ const state = {
   rightColumn: 'files',
   showSideBar: false,
   showTabBar: false,
-  sideBarWidth
+  sideBarWidth,
+  findInFolderRequestId: 0
 }
 
 const getters = {}
@@ -21,6 +22,9 @@ const mutations = {
       ipcRenderer.send('mt::update-sidebar-menu', windowId, !!layout.showSideBar)
     }
     Object.assign(state, layout)
+  },
+  INCREMENT_FIND_IN_FOLDER_REQUEST_ID (state) {
+    state.findInFolderRequestId += 1
   },
   TOGGLE_LAYOUT_ENTRY (state, entryName) {
     state[entryName] = !state[entryName]
