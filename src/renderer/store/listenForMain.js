@@ -15,6 +15,10 @@ const actions = {
           rightColumn: 'search',
           showSideBar: true
         })
+        commit('INCREMENT_FIND_IN_FOLDER_REQUEST_ID')
+        setTimeout(() => {
+          bus.$emit('focus-find-in-folder-input')
+        }, 0)
       }
       bus.$emit(type, type)
     })
